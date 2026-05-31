@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CallRecall</string>
+    <string name="search_hint">Search name or phone number</string>
+    <string name="no_notes">No notes yet. Tap + New Note to create one.</string>
+    <string name="new_note">New Note</string>
+    <string name="new_note_from_contact">Select from contacts</string>
+    <string name="new_note_manual_phone">Enter phone number</string>
+    <string name="enter_phone_number">Enter phone number</string>
+    <string name="hint_phone_number">Phone number</string>
+    <string name="create">Create</string>
+    <string name="delete_note_confirm">Delete this note?</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="sort_by">Sort by</string>
+    <string name="note_editor">Note</string>
+    <string name="contact_name">Contact name</string>
+    <string name="custom_display_name">Custom display name</string>
+    <string name="phone_number">Phone number</string>
+    <string name="note_content">Note</string>
+    <string name="last_updated">Last updated: %1$s</string>
+    <string name="permissions_title">Permissions required</string>
+    <string name="permissions_needed">CallRecall needs: %1$s. Grant permissions for call detection and overlays.</string>
+    <string name="grant_permissions">Grant permissions</string>
+    <string name="open_overlay_settings">Overlay settings</string>
+    <string name="notification_channel_name">During calls</string>
+    <string name="notification_channel_desc">Shown only while a phone call is active</string>
+    <string name="notification_title">CallRecall</string>
+    <string name="floating_button_desc">Open caller note</string>
+    <string name="battery_optimization_title">Allow background activity</string>
+    <string name="battery_optimization_message">So the floating note button appears during calls, allow CallRecall to run without battery restrictions. On some phones, also enable \"Display over other apps\" for this app in Settings.</string>
+    <string name="open_battery_settings">Open settings</string>
+</resources>

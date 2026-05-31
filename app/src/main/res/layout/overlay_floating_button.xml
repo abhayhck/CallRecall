@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/floatingOverlayRoot"
+    android:layout_width="40dp"
+    android:layout_height="40dp"
+    android:background="@drawable/bg_floating_button"
+    android:clickable="true"
+    android:contentDescription="@string/floating_button_desc"
+    android:elevation="8dp"
+    android:focusable="true">
+
+    <ImageView
+        android:id="@+id/floatingButtonIcon"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_gravity="center"
+        android:importantForAccessibility="no"
+        android:scaleType="centerInside" />
+
+</FrameLayout>
