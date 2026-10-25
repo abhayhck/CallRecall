@@ -1,25 +1,33 @@
 package com.callrecall.utils
 
 import android.Manifest
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 
 object PermissionHelper {
 
-    val REQUIRED_RUNTIME_PERMISSIONS = buildList {
-        add(Manifest.permission.READ_PHONE_STATE)
-        add(Manifest.permission.READ_CONTACTS)
-        add(Manifest.permission.READ_CALL_LOG)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            add(Manifest.permission.POST_NOTIFICATIONS)
+    val REQUIRED_RUNTIME_PERMISSIONS = arrayOf(
+        Manifest.permission.READ_PHONE_STATE,
+        Manifest.permission.READ_CONTACTS,
+        Manifest.permission.READ_CALL_LOG,
+        Manifest.permission.PROCESS_OUTGOING_CALLS,
+        Manifest.permission.POST_NOTIFICATIONS
+    )
+
+    fun missingRuntimePermissions(context: Context): List<String> =
+        REQUIRED_RUNTIME_PERMISSIONS.filter {
+            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
         }
-    }.toTypedArray()
+
+    fun hasOutgoingCallPermission(context: Context): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.PROCESS_OUTGOING_CALLS) ==
+            PackageManager.PERMISSION_GRANTED
 
     fun hasReadPhoneState(context: Context): Boolean {
         return ContextCompat.checkSelfPermission(
@@ -47,10 +55,7 @@ object PermissionHelper {
     }
 
     fun hasAllCorePermissions(context: Context): Boolean {
-        return hasReadPhoneState(context) &&
-            hasReadContacts(context) &&
-            hasReadCallLog(context) &&
-            hasOverlayPermission(context)
+        return missingRuntimePermissions(context).isEmpty() && hasOverlayPermission(context)
     }
 
     fun missingPermissions(context: Context): List<String> {
@@ -58,6 +63,9 @@ object PermissionHelper {
         if (!hasReadPhoneState(context)) missing.add("Phone")
         if (!hasReadContacts(context)) missing.add("Contacts")
         if (!hasReadCallLog(context)) missing.add("Call log")
+        if (!hasOutgoingCallPermission(context)) missing.add("Outgoing calls")
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED) missing.add("Notifications")
         if (!hasOverlayPermission(context)) missing.add("Display over other apps")
         return missing
     }
@@ -69,14 +77,17 @@ object PermissionHelper {
         )
     }
 
+    fun appSettingsIntent(context: Context): Intent = Intent(
+        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.parse("package:${context.packageName}")
+    )
+
+    fun isBackgroundRestricted(context: Context): Boolean =
+        context.getSystemService(ActivityManager::class.java)?.isBackgroundRestricted == true
+
     fun isIgnoringBatteryOptimizations(context: Context): Boolean {
         val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         return pm.isIgnoringBatteryOptimizations(context.packageName)
     }
 
-    fun batteryOptimizationSettingsIntent(context: Context): Intent {
-        return Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-            data = Uri.parse("package:${context.packageName}")
-        }
-    }
 }

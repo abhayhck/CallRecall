@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.telephony.TelephonyManager
+import android.util.Log
 import com.callrecall.utils.CallNumberStore
 import com.callrecall.utils.CallOverlayCoordinator
 import com.callrecall.utils.PhoneNumberUtils
@@ -31,6 +32,7 @@ class PhoneStateReceiver : BroadcastReceiver() {
             CallNumberStore.setIncoming(context, normalized)
         }
 
+        Log.d("CallOverlayCoord", "Phone-state broadcast received: state=$state")
         CallOverlayCoordinator.handleCallState(
             context,
             state,

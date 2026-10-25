@@ -9,3 +9,31 @@ local.properties
 .externalNativeBuild
 .cxx
 app/build
+
+# Generated distribution artifacts belong in GitHub Releases.
+/app/release/
+*.apk
+*.aab
+*.apks
+
+# Local signing credentials and private keys.
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+key.properties
+keystore.properties
+signing.properties
+.env
+.env.*
+!.env.example
+
+# Personal app data and exported backups.
+*.callrecall
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3

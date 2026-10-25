@@ -6,14 +6,11 @@ import java.util.Locale
 
 object DateTimeUtils {
 
-    private val dateTimeFormat = SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault())
-    private val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
-
     fun formatDateTime(timestamp: Long): String {
-        return dateTimeFormat.format(Date(timestamp))
+        return SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault()).format(Date(timestamp))
     }
 
     fun formatDate(timestamp: Long): String {
-        return dateFormat.format(Date(timestamp))
+        return SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(timestamp))
     }
 }

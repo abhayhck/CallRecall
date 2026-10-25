@@ -15,6 +15,9 @@ interface ContactNoteDao {
     @Query("SELECT * FROM contact_notes ORDER BY updatedAt DESC")
     fun observeAllNotes(): Flow<List<ContactNote>>
 
+    @Query("SELECT * FROM contact_notes ORDER BY id")
+    suspend fun getAllNotes(): List<ContactNote>
+
     @Query("SELECT * FROM contact_notes WHERE id = :id LIMIT 1")
     suspend fun getNoteById(id: Long): ContactNote?
 

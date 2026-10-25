@@ -3,92 +3,101 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:focusableInTouchMode="true"
     android:orientation="vertical">
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        app:navigationIcon="?attr/homeAsUpIndicator"
-        app:title="@string/note_editor" />
+        android:background="?attr/colorSurface"
+        app:navigationIcon="@drawable/ic_arrow_back"
+        app:title="@string/note_editor"
+        app:titleTextAppearance="?attr/textAppearanceTitleLarge" />
 
-    <ScrollView
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
         android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingStart="24dp"
+            android:paddingTop="16dp"
+            android:paddingEnd="24dp"
+            android:paddingBottom="32dp">
 
             <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.CallRecall.Input"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/contact_name">
+                android:hint="@string/name">
 
                 <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/editContactName"
+                    android:id="@+id/editName"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="textPersonName" />
-
+                    android:inputType="textPersonName|textCapWords"
+                    android:maxLines="1"
+                    android:imeOptions="actionNext"
+                    android:textAppearance="?attr/textAppearanceTitleMedium" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.CallRecall.Input"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:hint="@string/custom_display_name">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/editCustomName"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="text" />
-
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:id="@+id/phoneNumberLayout"
+                android:layout_marginTop="16dp"
                 android:hint="@string/phone_number">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/editPhoneNumber"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="phone" />
-
+                    android:inputType="phone"
+                    android:imeOptions="actionNext"
+                    android:maxLines="1" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <TextView
                 android:id="@+id/textLastUpdated"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:textAppearance="?attr/textAppearanceBodySmall" />
+                android:layout_marginTop="16dp"
+                android:textAppearance="?attr/textAppearanceLabelSmall"
+                android:textColor="?attr/colorOnSurfaceVariant" />
 
-            <com.google.android.material.textfield.TextInputLayout
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:hint="@string/note_content">
+                android:layout_marginTop="32dp"
+                android:labelFor="@id/editNoteContent"
+                android:text="@string/note_content"
+                android:textAppearance="?attr/textAppearanceTitleSmall"
+                android:textColor="?attr/colorOnSurfaceVariant" />
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/editNoteContent"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="top"
-                    android:inputType="textMultiLine|textCapSentences"
-                    android:minLines="12" />
-
-            </com.google.android.material.textfield.TextInputLayout>
-
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/editNoteContent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@android:color/transparent"
+                android:gravity="top|start"
+                android:hint="@string/note_placeholder"
+                android:inputType="textMultiLine|textCapSentences"
+                android:lineSpacingExtra="6dp"
+                android:minLines="12"
+                android:padding="0dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="16dp"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                android:textColor="?attr/colorOnSurface"
+                android:textColorHint="?attr/colorOnSurfaceVariant" />
         </LinearLayout>
-
-    </ScrollView>
-
+    </androidx.core.widget.NestedScrollView>
 </LinearLayout>

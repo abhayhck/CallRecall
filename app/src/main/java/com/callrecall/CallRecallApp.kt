@@ -8,6 +8,7 @@ import com.callrecall.database.AppDatabase
 import com.callrecall.receivers.OutgoingCallReceiver
 import com.callrecall.repository.ContactNoteRepository
 import com.callrecall.utils.PermissionHelper
+import com.callrecall.utils.configurePhoneNumberRegion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -32,12 +33,14 @@ class CallRecallApp : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        configurePhoneNumberRegion(this)
         registerOutgoingCallReceiverIfNeeded()
     }
 
     fun registerOutgoingCallReceiverIfNeeded() {
         if (outgoingReceiverRegistered) return
-        if (!PermissionHelper.hasReadPhoneState(this)) return
+        if (!PermissionHelper.hasReadPhoneState(this) ||
+            !PermissionHelper.hasOutgoingCallPermission(this)) return
         try {
             val filter = IntentFilter(Intent.ACTION_NEW_OUTGOING_CALL).apply {
                 priority = IntentFilter.SYSTEM_HIGH_PRIORITY
@@ -46,7 +49,7 @@ class CallRecallApp : Application() {
                 this,
                 OutgoingCallReceiver(),
                 filter,
-                ContextCompat.RECEIVER_NOT_EXPORTED
+                ContextCompat.RECEIVER_EXPORTED
             )
             outgoingReceiverRegistered = true
         } catch (e: Exception) {

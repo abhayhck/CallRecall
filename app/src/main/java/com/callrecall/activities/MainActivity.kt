@@ -3,6 +3,8 @@ package com.callrecall.activities
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
+import androidx.appcompat.app.AlertDialog
+import androidx.core.app.ActivityCompat
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -19,8 +21,12 @@ import com.callrecall.adapters.NoteListAdapter
 import com.callrecall.databinding.ActivityMainBinding
 import com.callrecall.models.ContactNote
 import com.callrecall.models.SortOption
+import com.callrecall.utils.applyContentInsets
 import com.callrecall.utils.ContactUtils
 import com.callrecall.utils.PermissionHelper
+import com.callrecall.utils.PhoneNumberUtils
+import com.callrecall.utils.PermissionRequestPlan
+import com.callrecall.utils.permissionRequestPlan
 import com.callrecall.viewmodels.MainViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
@@ -31,6 +37,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var viewModel: MainViewModel
     private lateinit var adapter: NoteListAdapter
+    private var permissionDialog: AlertDialog? = null
+    private var permissionStepInFlight = false
+    private var batteryPromptShown = false
+    private val permissionHistory by lazy { getSharedPreferences("permission_requests", MODE_PRIVATE) }
 
     private val pickContactLauncher = registerForActivityResult(
         ActivityResultContracts.PickContact()
@@ -45,19 +55,25 @@ class MainActivity : AppCompatActivity() {
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { results ->
-        val allGranted = results.values.all { it }
-        if (allGranted) {
-            onPermissionsReady()
-        } else {
-            showPermissionRationale()
-        }
+    ) {
+        permissionStepInFlight = false
+        requestPermissionsIfNeeded()
+    }
+
+    private val permissionSettingsLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        permissionStepInFlight = false
+        requestPermissionsIfNeeded()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        permissionStepInFlight = savedInstanceState?.getBoolean("permissionStepInFlight") ?: false
+        batteryPromptShown = savedInstanceState?.getBoolean("batteryPromptShown") ?: false
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        applyContentInsets(binding.root)
 
         setSupportActionBar(binding.toolbar)
 
@@ -71,6 +87,11 @@ class MainActivity : AppCompatActivity() {
         setupSearch()
         setupFab()
         observeNotes()
+        binding.buttonEnableCalls.setOnClickListener { requestPermissionsIfNeeded() }
+    }
+
+    override fun onResume() {
+        super.onResume()
         requestPermissionsIfNeeded()
     }
 
@@ -133,19 +154,31 @@ class MainActivity : AppCompatActivity() {
     private fun createFromManualPhone() {
         val input = TextInputEditText(this).apply {
             hint = getString(R.string.hint_phone_number)
+            inputType = android.text.InputType.TYPE_CLASS_PHONE
             setPadding(48, 32, 48, 32)
         }
-        MaterialAlertDialogBuilder(this)
+        val country = PhoneNumberUtils.defaultCountryLabel()
+        val help = if (country == null) getString(R.string.phone_number_help_international)
+            else getString(R.string.phone_number_help, country)
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.enter_phone_number)
+            .setMessage(help)
             .setView(input)
-            .setPositiveButton(R.string.create) { _, _ ->
-                val phone = input.text?.toString().orEmpty()
-                if (com.callrecall.utils.PhoneNumberUtils.isValid(phone)) {
+            .setPositiveButton(R.string.create, null)
+            .setNegativeButton(android.R.string.cancel, null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val phone = PhoneNumberUtils.normalize(input.text?.toString().orEmpty())
+                if (phone.isNotEmpty()) {
                     NoteEditorActivity.start(this, 0L, phone)
+                    dialog.dismiss()
+                } else {
+                    input.error = getString(R.string.invalid_phone_number)
                 }
             }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        }
+        dialog.show()
     }
 
     private fun confirmDelete(note: ContactNote) {
@@ -159,51 +192,103 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestPermissionsIfNeeded() {
-        if (PermissionHelper.hasAllCorePermissions(this)) {
+        if (!::binding.isInitialized || isFinishing || isDestroyed) return
+        (application as CallRecallApp).registerOutgoingCallReceiverIfNeeded()
+        val ready = PermissionHelper.hasAllCorePermissions(this)
+        binding.buttonEnableCalls.visibility = if (ready) View.GONE else View.VISIBLE
+        if (permissionStepInFlight) return
+        if (ready) {
+            permissionDialog?.dismiss()
             onPermissionsReady()
-            return
+        } else if (permissionDialog?.isShowing != true) {
+            showPermissionRationale()
         }
-        showPermissionRationale()
+    }
+
+    private fun currentPermissionPlan(): PermissionRequestPlan {
+        val missing = PermissionHelper.missingRuntimePermissions(this)
+        val blocked = missing.filter {
+            permissionHistory.getBoolean(it, false) &&
+                !ActivityCompat.shouldShowRequestPermissionRationale(this, it)
+        }.toSet()
+        return permissionRequestPlan(missing, blocked, PermissionHelper.hasOverlayPermission(this))
     }
 
     private fun showPermissionRationale() {
         val missing = PermissionHelper.missingPermissions(this)
-        val message = getString(R.string.permissions_needed, missing.joinToString(", "))
-        MaterialAlertDialogBuilder(this)
+        val plan = currentPermissionPlan()
+        val actionLabel = when (plan) {
+            PermissionRequestPlan.AppSettings -> R.string.open_app_settings
+            PermissionRequestPlan.OverlaySettings -> R.string.open_overlay_settings
+            else -> R.string.grant_permissions
+        }
+        val message = getString(R.string.permissions_needed, missing.joinToString(", ")) +
+            if (plan == PermissionRequestPlan.AppSettings) "\n\n" + getString(R.string.permissions_blocked) else ""
+        permissionDialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.permissions_title)
             .setMessage(message)
-            .setPositiveButton(R.string.grant_permissions) { _, _ ->
-                permissionLauncher.launch(PermissionHelper.REQUIRED_RUNTIME_PERMISSIONS)
-                if (!PermissionHelper.hasOverlayPermission(this)) {
-                    startActivity(PermissionHelper.overlaySettingsIntent(this))
-                }
+            .setPositiveButton(actionLabel) { _, _ -> performPermissionStep() }
+            .setNegativeButton(R.string.not_now, null)
+            .create().also { dialog ->
+                dialog.setOnDismissListener { if (permissionDialog === dialog) permissionDialog = null }
+                dialog.show()
             }
-            .setNeutralButton(R.string.open_overlay_settings) { _, _ ->
-                startActivity(PermissionHelper.overlaySettingsIntent(this))
+    }
+
+    private fun performPermissionStep() {
+        when (val plan = currentPermissionPlan()) {
+            is PermissionRequestPlan.Runtime -> {
+                permissionHistory.edit().apply {
+                    plan.permissions.forEach { putBoolean(it, true) }
+                }.apply()
+                permissionStepInFlight = true
+                permissionLauncher.launch(plan.permissions.toTypedArray())
             }
-            .show()
+            PermissionRequestPlan.AppSettings -> openPermissionSettings(PermissionHelper.appSettingsIntent(this))
+            PermissionRequestPlan.OverlaySettings -> openPermissionSettings(PermissionHelper.overlaySettingsIntent(this))
+            PermissionRequestPlan.Ready -> requestPermissionsIfNeeded()
+        }
+    }
+
+    private fun openPermissionSettings(intent: Intent) {
+        permissionStepInFlight = true
+        try {
+            permissionSettingsLauncher.launch(intent)
+        } catch (_: android.content.ActivityNotFoundException) {
+            permissionSettingsLauncher.launch(PermissionHelper.appSettingsIntent(this))
+        }
     }
 
     private fun onPermissionsReady() {
         (application as CallRecallApp).registerOutgoingCallReceiverIfNeeded()
-        if (!PermissionHelper.hasOverlayPermission(this)) {
-            startActivity(PermissionHelper.overlaySettingsIntent(this))
-            return
-        }
-        if (!PermissionHelper.isIgnoringBatteryOptimizations(this)) {
+        val preferences = getSharedPreferences("background_setup", MODE_PRIVATE)
+        if (!batteryPromptShown && !preferences.getBoolean("prompt_shown", false) &&
+            PermissionHelper.isBackgroundRestricted(this) &&
+            !PermissionHelper.isIgnoringBatteryOptimizations(this)) {
+            batteryPromptShown = true
+            // OEM background settings may not match Android's optimization whitelist.
+            // Offer setup once per installation; the menu always allows reopening it.
+            preferences.edit().putBoolean("prompt_shown", true).apply()
             MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.battery_optimization_title)
                 .setMessage(R.string.battery_optimization_message)
                 .setPositiveButton(R.string.open_battery_settings) { _, _ ->
-                    try {
-                        startActivity(PermissionHelper.batteryOptimizationSettingsIntent(this))
-                    } catch (_: Exception) {
-                        startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-                    }
+                    startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
                 }
-                .setNegativeButton(android.R.string.cancel, null)
+                .setNegativeButton(R.string.not_now, null)
                 .show()
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putBoolean("permissionStepInFlight", permissionStepInFlight)
+        outState.putBoolean("batteryPromptShown", batteryPromptShown)
+        super.onSaveInstanceState(outState)
+    }
+
+    override fun onDestroy() {
+        permissionDialog?.dismiss()
+        super.onDestroy()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -213,6 +298,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_backup -> {
+                startActivity(Intent(this, BackupActivity::class.java))
+                true
+            }
+            R.id.action_background_settings -> {
+                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                true
+            }
             R.id.action_sort -> {
                 showSortDialog()
                 true

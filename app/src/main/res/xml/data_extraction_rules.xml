@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <!-- Keep Android's existing note backup support, but never transfer device setup state. -->
+    <cloud-backup disableIfNoEncryptionCapabilities="true">
+        <exclude domain="sharedpref" path="permission_requests.xml" />
+        <exclude domain="sharedpref" path="background_setup.xml" />
+        <exclude domain="sharedpref" path="backup_status.xml" />
+        <exclude domain="sharedpref" path="call_recall_active_call.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="permission_requests.xml" />
+        <exclude domain="sharedpref" path="background_setup.xml" />
+        <exclude domain="sharedpref" path="backup_status.xml" />
+        <exclude domain="sharedpref" path="call_recall_active_call.xml" />
+    </device-transfer>
+</data-extraction-rules>

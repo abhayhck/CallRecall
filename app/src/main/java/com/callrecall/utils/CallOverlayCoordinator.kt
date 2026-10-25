@@ -6,6 +6,9 @@ import android.util.Log
 import com.callrecall.CallRecallApp
 import com.callrecall.repository.ContactNoteRepository
 import com.callrecall.services.CallMonitoringService
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -75,15 +78,21 @@ object CallOverlayCoordinator {
         showJob = CallRecallApp.instance.applicationScope.launch {
             delay(if (isIncoming) 350 else 150)
 
-            val phone = resolvePhoneNumber(context, numberHint)
-            Log.d(TAG, "Showing overlay for number='$phone'")
-
             try {
-                val hasNote = phone.isNotEmpty() &&
-                    withContext(Dispatchers.IO) { repository.existsForPhone(phone) }
+                val info = resolveCallOverlayInfo(
+                    resolvePhone = { resolvePhoneNumber(context, numberHint) },
+                    hasNote = { phone -> withContext(Dispatchers.IO) { repository.existsForPhone(phone) } },
+                    reportFailure = { Log.w(TAG, "Caller lookup unavailable; showing a new-note bubble", it) }
+                )
+                currentCoroutineContext().ensureActive()
                 withContext(Dispatchers.Main) {
-                    overlayManager.show(phone, hasNote)
+                    if (lastState != TelephonyManager.CALL_STATE_IDLE) {
+                        Log.d(TAG, "Showing overlay; caller resolved=${info.phoneNumber.isNotEmpty()}")
+                        overlayManager.show(info.phoneNumber, info.hasNote)
+                    }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to show overlay", e)
             }
@@ -96,7 +105,8 @@ object CallOverlayCoordinator {
             if (normalized.isNotEmpty()) return normalized
         }
 
-        CallNumberStore.getBestNumber(context).takeIf { it.isNotEmpty() }?.let { return it }
+        PhoneNumberUtils.normalize(CallNumberStore.getBestNumber(context))
+            .takeIf { it.isNotEmpty() }?.let { return it }
 
         if (PermissionHelper.hasReadCallLog(context)) {
             delay(200)

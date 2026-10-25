@@ -32,15 +32,21 @@ class NoteListAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(note: ContactNote) {
-            binding.textPrimaryName.text = note.contactName.ifBlank { note.displayLabel() }
-            binding.textCustomName.text = note.customDisplayName
-            binding.textCustomName.visibility = if (note.customDisplayName.isNotBlank()) {
+            binding.textPrimaryName.text = note.displayLabel().ifBlank {
+                binding.root.context.getString(com.callrecall.R.string.unnamed_note)
+            }
+            binding.textNotePreview.text = note.noteContent.trim()
+            binding.textNotePreview.visibility = if (note.noteContent.isBlank()) {
+                android.view.View.GONE
+            } else {
+                android.view.View.VISIBLE
+            }
+            binding.textPhoneNumber.text = note.phoneNumber
+            binding.textPhoneNumber.visibility = if (note.name.isNotBlank() && note.phoneNumber.isNotBlank()) {
                 android.view.View.VISIBLE
             } else {
                 android.view.View.GONE
             }
-            binding.textContactName.visibility = android.view.View.GONE
-            binding.textPhoneNumber.text = note.phoneNumber
             binding.textLastUpdated.text = DateTimeUtils.formatDate(note.updatedAt)
 
             binding.root.setOnClickListener { onNoteClick(note) }

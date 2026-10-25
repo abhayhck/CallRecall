@@ -5,15 +5,17 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import com.callrecall.R
 import com.callrecall.CallRecallApp
 import com.callrecall.databinding.ActivityNoteEditorBinding
 import com.callrecall.utils.DateTimeUtils
+import com.callrecall.utils.PhoneNumberUtils
+import com.callrecall.utils.applyContentInsets
 import com.callrecall.viewmodels.NoteEditorViewModel
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 /**
  * Standalone note editor — independent of call lifecycle.
@@ -29,6 +31,7 @@ class NoteEditorActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityNoteEditorBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        applyContentInsets(binding.root)
 
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -63,15 +66,14 @@ class NoteEditorActivity : AppCompatActivity() {
     }
 
     private fun setupFields() {
-        binding.editContactName.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus && !suppressTextCallbacks) {
-                viewModel.updateContactName(binding.editContactName.text?.toString().orEmpty())
-            }
+        val country = PhoneNumberUtils.defaultCountryLabel()
+        binding.phoneNumberLayout.helperText = if (country == null) {
+            getString(R.string.phone_number_help_international)
+        } else {
+            getString(R.string.phone_number_help, country)
         }
-        binding.editCustomName.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus && !suppressTextCallbacks) {
-                viewModel.updateCustomDisplayName(binding.editCustomName.text?.toString().orEmpty())
-            }
+        binding.editName.addTextChangedListener { text ->
+            if (!suppressTextCallbacks) viewModel.updateName(text?.toString().orEmpty())
         }
         binding.editPhoneNumber.setOnFocusChangeListener { _, hasFocus ->
             if (!hasFocus && !suppressTextCallbacks) {
@@ -93,24 +95,30 @@ class NoteEditorActivity : AppCompatActivity() {
 
     private fun observeViewModel() {
         lifecycleScope.launch {
+            viewModel.phoneNumberError.collect { error ->
+                binding.phoneNumberLayout.error = error?.let { getString(it) }
+            }
+        }
+        lifecycleScope.launch {
             kotlinx.coroutines.flow.combine(
-                viewModel.contactName,
-                viewModel.customDisplayName,
+                viewModel.name,
                 viewModel.phoneNumber,
                 viewModel.updatedAt,
                 viewModel.isLoading
-            ) { contact, custom, phone, updated, loading ->
-                arrayOf(contact, custom, phone, updated, loading)
+            ) { name, phone, updated, loading ->
+                arrayOf(name, phone, updated, loading)
             }.collect { values ->
-                val loading = values[4] as Boolean
-                if (loading) return@collect
+                if (values[3] as Boolean) return@collect
                 suppressTextCallbacks = true
-                binding.editContactName.setText(values[0] as String)
-                binding.editCustomName.setText(values[1] as String)
-                binding.editPhoneNumber.setText(values[2] as String)
+                val name = values[0] as String
+                if (binding.editName.text?.toString() != name) binding.editName.setText(name)
+                if (!binding.editPhoneNumber.hasFocus()) {
+                    val phone = values[1] as String
+                    if (binding.editPhoneNumber.text?.toString() != phone) binding.editPhoneNumber.setText(phone)
+                }
                 binding.textLastUpdated.text = getString(
                     com.callrecall.R.string.last_updated,
-                    DateTimeUtils.formatDateTime(values[3] as Long)
+                    DateTimeUtils.formatDateTime(values[2] as Long)
                 )
                 suppressTextCallbacks = false
             }
@@ -128,18 +136,27 @@ class NoteEditorActivity : AppCompatActivity() {
     }
 
     private fun closeEditor() {
-        viewModel.updateContactName(binding.editContactName.text?.toString().orEmpty())
-        viewModel.updateCustomDisplayName(binding.editCustomName.text?.toString().orEmpty())
+        if (binding.editPhoneNumber.text.isNullOrBlank() &&
+            binding.editName.text.isNullOrBlank() && binding.editNoteContent.text.isNullOrBlank()
+        ) {
+            finish()
+            return
+        }
+        viewModel.updateName(binding.editName.text?.toString().orEmpty())
         viewModel.updatePhoneNumber(binding.editPhoneNumber.text?.toString().orEmpty())
         viewModel.updateNoteContent(binding.editNoteContent.text?.toString().orEmpty())
-        runBlocking { viewModel.persist() }
-        finish()
+        lifecycleScope.launch {
+            if (viewModel.persist()) {
+                finish()
+            } else {
+                binding.editPhoneNumber.requestFocus()
+            }
+        }
     }
 
     override fun onPause() {
         super.onPause()
-        viewModel.updateContactName(binding.editContactName.text?.toString().orEmpty())
-        viewModel.updateCustomDisplayName(binding.editCustomName.text?.toString().orEmpty())
+        viewModel.updateName(binding.editName.text?.toString().orEmpty())
         viewModel.updatePhoneNumber(binding.editPhoneNumber.text?.toString().orEmpty())
         viewModel.updateNoteContent(binding.editNoteContent.text?.toString().orEmpty())
         lifecycleScope.launch { viewModel.persist() }
